@@ -31,7 +31,22 @@ data Result a = Ok a -- Success
 -- If not, returns:
 --    Err <string describing problem encountered>
 parseSExp :: [Token] -> Result (SExp, [Token])
-parseSExp tokens = Err "implement me!"
+parseSExp [] = (Err "Empty token list.")
+parseSExp (t:ts) =
+  case t of
+    NumTok t  -> Ok (NumS t, ts)
+    IdTok t   -> Ok (IdS t, ts)
+    Open b    -> parseSExpList b [] ts
+    otherwise -> Err "Invalid S-expression."
+
+parseSExpList :: Brace -> [SExp] -> [Token] -> Result (SExp, [Token])
+parseSExpList b ss ts =
+  case ts of
+    []           -> Err "Missing close brace."
+    (Close c:us) -> if c == b then Ok (ListS (reverse ss), us) else Err "Mismatched brace types."
+    otherwise    -> case parseSExp ts of
+                      Err str    -> Err str
+                      Ok (s, us) -> parseSExpList b (s:ss) us
 
 -- Examples that should parse.
 validExamples = [
