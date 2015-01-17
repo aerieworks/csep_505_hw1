@@ -4,7 +4,9 @@ import Token
 
 -- Converts a string into a list of tokens.
 tokenize :: String -> [Token]
-tokenize str = error "implement me!"
+tokenize str = case parseToken str of
+  Nothing -> []
+  Just x  -> (fst x):(tokenize (snd x))
 
 -- S-expression data definition.
 data SExp = NumS Integer -- numeric expression
