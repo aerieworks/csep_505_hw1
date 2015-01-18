@@ -28,7 +28,7 @@ parseExpr sexp =
     IdS "false"                           -> Ok (BoolE False)
     ListS ((IdS "if"):cond:true:false:[]) -> parseIfE cond true false
     ListS ((IdS op):x:y:[])               -> parseBinE op x y
-    otherwise                             -> Err "Invalid syntax."
+    otherwise                             -> Err ("Invalid syntax: '" ++ show sexp ++ "'")
 
 parseBinE :: String -> SExp -> SExp -> Result Expr
 parseBinE opStr xSExp ySExp =
@@ -134,4 +134,35 @@ parse input =
     Err str      -> Err str
 
 interp :: Expr -> Result Expr
-interp expr = Err "unimplemented"
+interp expr =
+  case expr of
+    NumE num            -> Ok (NumE num)
+    BoolE bool          -> Ok (BoolE bool)
+    BinOpE op a b       -> interpBinOp op (interp a) (interp b)
+    IfE cond true false -> interpIf cond true false
+    --otherwise           -> Err ("Unknown syntax: '" ++ show expr ++ "'")
+
+interpBinOp :: BinOp -> Result Expr -> Result Expr -> Result Expr
+interpBinOp _ (Err str) _ = Err str
+interpBinOp _ _ (Err str) = Err str
+interpBinOp op (Ok (NumE x)) (Ok (NumE y)) =
+   case op of
+     Add       -> Ok (NumE (x + y))
+     Mult      -> Ok (NumE (x * y))
+     Equal     -> Ok (BoolE (x == y))
+     Lt        -> Ok (BoolE (x < y))
+     otherwise -> Err ("Unknown operator: '" ++ show op ++ "'")
+
+interpIf :: Expr -> Expr -> Expr -> Result Expr
+interpIf cond ifClause elseClause =
+  case interp cond of
+    Err str          -> Err str
+    Ok (BoolE True)  -> interp ifClause
+    Ok (BoolE False) -> interp elseClause
+    otherwise        -> Err "Non-boolean expression in conditional"
+
+interpStr :: String -> Result Expr
+interpStr input =
+  case parse input of
+    Ok expr -> interp expr
+    Err str -> Err str
