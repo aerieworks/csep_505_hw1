@@ -20,6 +20,15 @@ data Expr = NumE Integer
           | IfE Expr Expr Expr
           deriving (Eq, Show)
 
+wrap :: a -> Result a
+wrap v = Ok v
+
+instance Monad Result where
+  return v      = wrap v
+  Ok v >>= f    = f v
+  Err str >>= f = Err str
+  fail _        = Err "failure"
+
 parseExpr :: SExp -> Result Expr
 parseExpr sexp =
   case sexp of
@@ -32,13 +41,10 @@ parseExpr sexp =
 
 parseBinE :: String -> SExp -> SExp -> Result Expr
 parseBinE opStr xSExp ySExp =
-  case parseBinOp opStr of
-    Err str   -> Err str
-    Ok op     -> case parseNumExpr xSExp of
-                  Err str -> Err str
-                  Ok x    -> case parseNumExpr ySExp of
-                               Err str -> Err str
-                               Ok y    -> Ok (BinOpE op x y)
+  do op <- parseBinOp opStr
+     x  <- parseNumExpr xSExp
+     y  <- parseNumExpr ySExp
+     wrap (BinOpE op x y)
 
 parseBinOp :: String -> Result BinOp
 parseBinOp str =
@@ -72,13 +78,10 @@ parseBoolExpr sexp =
 
 parseIfE :: SExp -> SExp -> SExp -> Result Expr
 parseIfE condSExp trueSExp falseSExp =
-  case parseBoolExpr condSExp of
-    Err str -> Err str
-    Ok cond -> case parseNumExpr trueSExp of
-                 Err str -> Err str
-                 Ok true -> case parseNumExpr falseSExp of
-                               Err str  -> Err str
-                               Ok false -> Ok (IfE cond true false)
+  do cond  <- parseBoolExpr condSExp
+     true  <- parseNumExpr trueSExp
+     false <- parseNumExpr falseSExp
+     wrap (IfE cond true false)
 
 validParseExamples = [
   ("non-trivial example", "(if (= (* 2 3) (+ 5 1)) 7 10)",
@@ -151,7 +154,7 @@ interpBinOp op (Ok (NumE x)) (Ok (NumE y)) =
      Mult      -> Ok (NumE (x * y))
      Equal     -> Ok (BoolE (x == y))
      Lt        -> Ok (BoolE (x < y))
-     otherwise -> Err ("Unknown operator: '" ++ show op ++ "'")
+     --otherwise -> Err ("Unknown operator: '" ++ show op ++ "'")
 
 interpIf :: Expr -> Expr -> Expr -> Result Expr
 interpIf cond ifClause elseClause =
